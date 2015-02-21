@@ -5,11 +5,11 @@
 --
 Spring Boot's executable jars are ready-made for most popular cloud PaaS
 (platform-as-a-service) providers. These providers tend to require that you
-_`bring your own container'_; they manage application processes (not Java applications
+"`bring your own container`"; they manage application processes (not Java applications
 specifically), so they need some intermediary layer that adapts _your_ application to the
 _cloud's_ notion of a running process.
 
-Two popular cloud providers, Heroku and Cloud Foundry, employ a ``buildpack'' approach.
+Two popular cloud providers, Heroku and Cloud Foundry, employ a "`buildpack`" approach.
 The buildpack wraps your deployed code in whatever is needed to _start_ your
 application: it might be a JDK and a call to `java`, it might be an embedded webserver,
 or it might be a full-fledged application server. A buildpack is pluggable, but ideally
@@ -22,7 +22,7 @@ to run packaged within it.
 
 In this section we'll look at what it takes to get the
 <<getting-started.adoc#getting-started-first-application, simple application that we
-developed>> in the ``Getting Started'' section up and running in the Cloud.
+developed>> in the "`Getting Started`" section up and running in the Cloud.
 --
 
 
@@ -135,9 +135,9 @@ access application information (such as the public URL of the application) and s
 information (such as database credentials). See `VcapApplicationListener` Javdoc for
 complete details.
 
-TIP: The https://github.com/spring-projects/spring-cloud[Spring Cloud] project is a better
-fit for tasks such as configuring a DataSource; it also lets you use Spring Cloud with
-Heroku.
+TIP: The http://cloud.spring.io/spring-cloud-connectors/[Spring Cloud Connectors] project
+is a better fit for tasks such as configuring a DataSource. Spring Boot includes
+auto-configuration support and a `spring-boot-starter-cloud-connectors` starter POM.
 
 
 
@@ -158,8 +158,8 @@ for our starter REST application:
 
 Spring Boot makes `-D` arguments available as properties accessible from a Spring
 `Environment` instance. The `server.port` configuration property is fed to the embedded
-Tomcat or Jetty instance which then uses it when it starts up. The `$PORT` environment
-variable is assigned to us by the Heroku PaaS.
+Tomcat, Jetty or Undertow instance which then uses it when it starts up. The `$PORT`
+environment variable is assigned to us by the Heroku PaaS.
 
 Heroku by default will use Java 1.6. This is fine as long as your Maven or Gradle build
 is set to use the same version (Maven users can use the `java.version` property). If you
@@ -187,7 +187,7 @@ This should be everything you need. The most common workflow for Heroku deployme
 
 	-----> Java app detected
 	-----> Installing OpenJDK 1.7... *done*
-	-----> Installing Maven 3.0.3... *done*
+	-----> Installing Maven 3.2.3... *done*
 	-----> Installing settings.xml... *done*
 	-----> executing /app/tmp/cache/.maven/bin/mvn -B
 	       -Duser.home=/tmp/build_0c35a5d2-a067-4abc-a232-14b1fb7a8229
@@ -221,18 +221,6 @@ This should be everything you need. The most common workflow for Heroku deployme
 ----
 
 Your application should now be up and running on Heroku.
-
-
-
-[[cloud-deployment-cloudbees]]
-== CloudBees
-CloudBees provides cloud-based ``continuous integration'' and ``continuous delivery''
-services as well as Java PaaS hosting. https://github.com/msgilligan[Sean Gilligan]
-has contributed an excellent
-https://github.com/CloudBees-community/springboot-gradle-cloudbees-sample[Spring Boot
-sample application] to the CloudBees community GitHub repository. The project includes
-an extensive  https://github.com/CloudBees-community/springboot-gradle-cloudbees-sample/blob/master/README.asciidoc[README]
-that covers the steps that you need to follow when deploying to CloudBees.
 
 
 
@@ -300,17 +288,25 @@ prevents you from using Gradle newer than 1.6.
 
 
 
+[[cloud-deployment-gae]]
+== Google App Engine
+Google App Engine is tied to the Servlet 2.5 API, so you can't deploy a Spring Application
+there without some modifications. See the <<howto.adoc#howto-servlet-2-5, Servlet 2.5 section>>
+of this guide.
+
+
+
 [[cloud-deployment-whats-next]]
 == What to read next
 Check out the http://www.cloudfoundry.com/[Cloud Foundry], https://www.heroku.com/[Heroku]
-and http://www.cloudbees.com[CloudBees] web sites for more information about the kinds of
+and https://www.openshift.com[Openshift] web sites for more information about the kinds of
 features that a PaaS can offer. These are just three of the most popular Java PaaS
 providers, since Spring Boot is so amenable to cloud-based deployment you're free to
 consider other providers as well.
 
-The next section goes on to cover the '<<spring-boot-cli.adoc#cli, Spring Boot CLI>>';
+The next section goes on to cover the _<<spring-boot-cli.adoc#cli, Spring Boot CLI>>_;
 or you can jump ahead to read about
-'<<build-tool-plugins.adoc#build-tool-plugins, build tool plugins>>'.
+_<<build-tool-plugins.adoc#build-tool-plugins, build tool plugins>>_.
 
 
 

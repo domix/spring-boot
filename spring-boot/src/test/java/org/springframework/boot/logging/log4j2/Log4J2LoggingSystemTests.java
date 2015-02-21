@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2014 the original author or authors.
+ * Copyright 2012-2015 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,28 @@
 
 package org.springframework.boot.logging.log4j2;
 
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
+import org.springframework.boot.logging.AbstractLoggingSystemTests;
 import org.springframework.boot.logging.LogLevel;
 import org.springframework.boot.test.OutputCapture;
 import org.springframework.util.StringUtils;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import static org.hamcrest.Matchers.arrayContaining;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
@@ -34,14 +45,15 @@ import static org.junit.Assert.assertTrue;
  * Tests for {@link Log4J2LoggingSystem}.
  *
  * @author Daniel Fullarton
+ * @author Phillip Webb
+ * @author Andy Wilkinson
  */
-public class Log4J2LoggingSystemTests {
+public class Log4J2LoggingSystemTests extends AbstractLoggingSystemTests {
 
 	@Rule
 	public OutputCapture output = new OutputCapture();
 
-	private final Log4J2LoggingSystem loggingSystem = new Log4J2LoggingSystem(getClass()
-			.getClassLoader());
+	private final TestLog4J2LoggingSystem loggingSystem = new TestLog4J2LoggingSystem();
 
 	private Logger logger;
 
@@ -50,39 +62,52 @@ public class Log4J2LoggingSystemTests {
 		this.logger = LogManager.getLogger(getClass());
 	}
 
-	@After
-	public void clear() {
-		System.clearProperty("LOG_FILE");
-		System.clearProperty("LOG_PATH");
-		System.clearProperty("PID");
+	@Test
+	public void noFile() throws Exception {
+		this.loggingSystem.beforeInitialize();
+		this.logger.info("Hidden");
+		this.loggingSystem.initialize(null, null);
+		this.logger.info("Hello world");
+		String output = this.output.toString().trim();
+		assertTrue("Wrong output:\n" + output, output.contains("Hello world"));
+		assertFalse("Output not hidden:\n" + output, output.contains("Hidden"));
+		assertFalse(new File(tmpDir() + "/spring.log").exists());
+	}
+
+	@Test
+	public void withFile() throws Exception {
+		this.loggingSystem.beforeInitialize();
+		this.logger.info("Hidden");
+		this.loggingSystem.initialize(null, getLogFile(null, tmpDir()));
+		this.logger.info("Hello world");
+		String output = this.output.toString().trim();
+		assertTrue("Wrong output:\n" + output, output.contains("Hello world"));
+		assertFalse("Output not hidden:\n" + output, output.contains("Hidden"));
+		assertTrue(new File(tmpDir() + "/spring.log").exists());
 	}
 
 	@Test
 	public void testNonDefaultConfigLocation() throws Exception {
 		this.loggingSystem.beforeInitialize();
-		this.loggingSystem.initialize("classpath:log4j2-nondefault.xml");
+		this.loggingSystem.initialize("classpath:log4j2-nondefault.xml",
+				getLogFile(tmpDir() + "/tmp.log", null));
 		this.logger.info("Hello world");
 		String output = this.output.toString().trim();
 		assertTrue("Wrong output:\n" + output, output.contains("Hello world"));
-		assertTrue("Wrong output:\n" + output, output.contains("/tmp/spring.log"));
+		assertTrue("Wrong output:\n" + output, output.contains(tmpDir() + "/tmp.log"));
+		assertFalse(new File(tmpDir() + "/tmp.log").exists());
 	}
 
 	@Test(expected = IllegalStateException.class)
 	public void testNonexistentConfigLocation() throws Exception {
 		this.loggingSystem.beforeInitialize();
-		this.loggingSystem.initialize("classpath:log4j2-nonexistent.xml");
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void testNullConfigLocation() throws Exception {
-		this.loggingSystem.beforeInitialize();
-		this.loggingSystem.initialize(null);
+		this.loggingSystem.initialize("classpath:log4j2-nonexistent.xml", null);
 	}
 
 	@Test
 	public void setLevel() throws Exception {
 		this.loggingSystem.beforeInitialize();
-		this.loggingSystem.initialize();
+		this.loggingSystem.initialize(null, null);
 		this.logger.debug("Hello");
 		this.loggingSystem.setLogLevel("org.springframework.boot", LogLevel.DEBUG);
 		this.logger.debug("Hello");
@@ -91,14 +116,66 @@ public class Log4J2LoggingSystemTests {
 	}
 
 	@Test
+	@Ignore("Fails on Bamboo")
 	public void loggingThatUsesJulIsCaptured() {
 		this.loggingSystem.beforeInitialize();
-		this.loggingSystem.initialize();
+		this.loggingSystem.initialize(null, null);
 		java.util.logging.Logger julLogger = java.util.logging.Logger
 				.getLogger(getClass().getName());
-		julLogger.info("Hello world");
+		julLogger.severe("Hello world");
 		String output = this.output.toString().trim();
 		assertTrue("Wrong output:\n" + output, output.contains("Hello world"));
+	}
+
+	@Test
+	public void configLocationsWithNoExtraDependencies() {
+		assertThat(this.loggingSystem.getStandardConfigLocations(),
+				is(arrayContaining("log4j2.xml")));
+	}
+
+	@Test
+	public void configLocationsWithJacksonDatabind() {
+		this.loggingSystem.availableClasses(ObjectMapper.class.getName());
+		assertThat(this.loggingSystem.getStandardConfigLocations(),
+				is(arrayContaining("log4j2.json", "log4j2.jsn", "log4j2.xml")));
+	}
+
+	@Test
+	public void configLocationsWithJacksonDataformatYaml() {
+		this.loggingSystem
+				.availableClasses("com.fasterxml.jackson.dataformat.yaml.YAMLParser");
+		assertThat(this.loggingSystem.getStandardConfigLocations(),
+				is(arrayContaining("log4j2.yaml", "log4j2.yml", "log4j2.xml")));
+	}
+
+	@Test
+	public void configLocationsWithJacksonDatabindAndDataformatYaml() {
+		this.loggingSystem.availableClasses(
+				"com.fasterxml.jackson.dataformat.yaml.YAMLParser",
+				ObjectMapper.class.getName());
+		assertThat(
+				this.loggingSystem.getStandardConfigLocations(),
+				is(arrayContaining("log4j2.yaml", "log4j2.yml", "log4j2.json",
+						"log4j2.jsn", "log4j2.xml")));
+	}
+
+	private static class TestLog4J2LoggingSystem extends Log4J2LoggingSystem {
+
+		private List<String> availableClasses = new ArrayList<String>();
+
+		public TestLog4J2LoggingSystem() {
+			super(TestLog4J2LoggingSystem.class.getClassLoader());
+		}
+
+		@Override
+		protected boolean isClassAvailable(String className) {
+			return this.availableClasses.contains(className);
+		}
+
+		private void availableClasses(String... classNames) {
+			Collections.addAll(this.availableClasses, classNames);
+		}
+
 	}
 
 }

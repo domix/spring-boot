@@ -9,15 +9,16 @@ org.springframework.boot.context.event.EventPublishingRunListener
 
 # Application Context Initializers
 org.springframework.context.ApplicationContextInitializer=\
+org.springframework.boot.context.ConfigurationWarningsApplicationContextInitializer,\
 org.springframework.boot.context.ContextIdApplicationContextInitializer,\
 org.springframework.boot.context.config.DelegatingApplicationContextInitializer
 
 # Application Listeners
 org.springframework.context.ApplicationListener=\
-org.springframework.boot.ansi.AnsiOutputApplicationListener,\
 org.springframework.boot.builder.ParentContextCloserApplicationListener,\
 org.springframework.boot.cloudfoundry.VcapApplicationListener,\
 org.springframework.boot.context.FileEncodingApplicationListener,\
+org.springframework.boot.context.config.AnsiOutputApplicationListener,\
 org.springframework.boot.context.config.ConfigFileApplicationListener,\
 org.springframework.boot.context.config.DelegatingApplicationListener,\
 org.springframework.boot.liquibase.LiquibaseServiceLocatorApplicationListener,\

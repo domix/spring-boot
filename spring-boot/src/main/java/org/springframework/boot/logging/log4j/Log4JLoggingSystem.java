@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2013 the original author or authors.
+ * Copyright 2012-2015 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import java.util.Map;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
+import org.springframework.boot.logging.LogFile;
 import org.springframework.boot.logging.LogLevel;
 import org.springframework.boot.logging.LoggingSystem;
 import org.springframework.boot.logging.Slf4JLoggingSystem;
@@ -35,6 +36,7 @@ import org.springframework.util.StringUtils;
  *
  * @author Phillip Webb
  * @author Dave Syer
+ * @author Andy Wilkinson
  */
 public class Log4JLoggingSystem extends Slf4JLoggingSystem {
 
@@ -52,19 +54,48 @@ public class Log4JLoggingSystem extends Slf4JLoggingSystem {
 	}
 
 	public Log4JLoggingSystem(ClassLoader classLoader) {
-		super(classLoader, "log4j.xml", "log4j.properties");
+		super(classLoader);
 	}
 
 	@Override
-	public void initialize(String configLocation) {
-		Assert.notNull(configLocation, "ConfigLocation must not be null");
+	protected String[] getStandardConfigLocations() {
+		return new String[] { "log4j.xml", "log4j.properties" };
+	}
+
+	@Override
+	public void beforeInitialize() {
+		super.beforeInitialize();
+		LogManager.getRootLogger().setLevel(Level.FATAL);
+	}
+
+	@Override
+	protected void loadDefaults(LogFile logFile) {
+		if (logFile != null) {
+			loadConfiguration(getPackagedConfigFile("log4j-file.properties"), logFile);
+		}
+		else {
+			loadConfiguration(getPackagedConfigFile("log4j.properties"), logFile);
+		}
+	}
+
+	@Override
+	protected void loadConfiguration(String location, LogFile logFile) {
+		Assert.notNull(location, "Location must not be null");
+		if (logFile != null) {
+			logFile.applyToSystemProperties();
+		}
 		try {
-			Log4jConfigurer.initLogging(configLocation);
+			Log4jConfigurer.initLogging(location);
 		}
 		catch (Exception ex) {
-			throw new IllegalStateException("Could not initialize logging from "
-					+ configLocation, ex);
+			throw new IllegalStateException("Could not initialize Log4J logging from "
+					+ location, ex);
 		}
+	}
+
+	@Override
+	protected void reinitialize() {
+		loadConfiguration(getSelfInitializationConfig(), null);
 	}
 
 	@Override

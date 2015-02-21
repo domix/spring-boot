@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2014 the original author or authors.
+ * Copyright 2012-2015 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,11 @@ package org.springframework.boot.autoconfigure.jackson;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.joda.time.LocalDateTime;
 import org.junit.After;
 import org.junit.Before;
@@ -36,6 +39,7 @@ import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.ObjectCodec;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.MapperFeature;
@@ -90,7 +94,8 @@ public class JacksonAutoConfigurationTests {
 
 	@Test
 	public void customJacksonModules() throws Exception {
-		this.context.register(ModulesConfig.class, JacksonAutoConfiguration.class);
+		this.context.register(ModuleConfig.class, MockObjectMapperConfig.class,
+				JacksonAutoConfiguration.class);
 		this.context.refresh();
 		ObjectMapper mapper = this.context.getBean(ObjectMapper.class);
 		@SuppressWarnings({ "unchecked", "unused" })
@@ -130,6 +135,23 @@ public class JacksonAutoConfigurationTests {
 				"spring.jackson.date-format:yyyyMMddHHmmss");
 		this.context.refresh();
 		ObjectMapper mapper = this.context.getBean(ObjectMapper.class);
+		DateTime dateTime = new DateTime(1988, 6, 25, 20, 30, DateTimeZone.UTC);
+		assertEquals("\"19880625203000\"", mapper.writeValueAsString(dateTime));
+		dateTime = new DateTime(1988, 6, 25, 20, 30);
+		Date date = dateTime.toDate();
+		assertEquals("\"19880625203000\"", mapper.writeValueAsString(date));
+	}
+
+	@Test
+	public void customJodaDateTimeFormat() throws Exception {
+		this.context.register(JacksonAutoConfiguration.class);
+		EnvironmentTestUtils.addEnvironment(this.context,
+				"spring.jackson.date-format:yyyyMMddHHmmss",
+				"spring.jackson.joda-date-time-format:yyyy-MM-dd HH:mm:ss");
+		this.context.refresh();
+		ObjectMapper mapper = this.context.getBean(ObjectMapper.class);
+		DateTime dateTime = new DateTime(1988, 6, 25, 20, 30, DateTimeZone.UTC);
+		assertEquals("\"1988-06-25 20:30:00\"", mapper.writeValueAsString(dateTime));
 		Date date = new DateTime(1988, 6, 25, 20, 30).toDate();
 		assertEquals("\"19880625203000\"", mapper.writeValueAsString(date));
 	}
@@ -143,6 +165,8 @@ public class JacksonAutoConfigurationTests {
 						"spring.jackson.date-format:org.springframework.boot.autoconfigure.jackson.JacksonAutoConfigurationTests.MyDateFormat");
 		this.context.refresh();
 		ObjectMapper mapper = this.context.getBean(ObjectMapper.class);
+		DateTime dateTime = new DateTime(1988, 6, 25, 20, 30, DateTimeZone.UTC);
+		assertEquals("\"1988-06-25T20:30:00.000Z\"", mapper.writeValueAsString(dateTime));
 		Date date = new DateTime(1988, 6, 25, 20, 30).toDate();
 		assertEquals("\"1988-06-25 20:30:00\"", mapper.writeValueAsString(date));
 	}
@@ -252,7 +276,7 @@ public class JacksonAutoConfigurationTests {
 	public void disableDeserializationFeature() throws Exception {
 		this.context.register(JacksonAutoConfiguration.class);
 		EnvironmentTestUtils.addEnvironment(this.context,
-				"spring.jackson.deserialization.fail_on_unknown_properties:false");
+				"spring.jackson.deserialization.fail-on-unknown-properties:false");
 		this.context.refresh();
 		ObjectMapper mapper = this.context.getBean(ObjectMapper.class);
 		assertTrue(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES.enabledByDefault());
@@ -354,13 +378,41 @@ public class JacksonAutoConfigurationTests {
 				DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES));
 	}
 
-	@Configuration
-	protected static class ModulesConfig {
+	@Test
+	public void httpMappersJsonPrettyPrintIsApplied() {
+		this.context.register(JacksonAutoConfiguration.class);
+		EnvironmentTestUtils.addEnvironment(this.context,
+				"http.mappers.json-pretty-print:true");
+		this.context.refresh();
+		ObjectMapper objectMapper = this.context.getBean(ObjectMapper.class);
+		assertTrue(objectMapper.getSerializationConfig().isEnabled(
+				SerializationFeature.INDENT_OUTPUT));
+	}
 
-		@Bean
-		public Module jacksonModule() {
-			return new SimpleModule();
-		}
+	@Test
+	public void httpMappersJsonSortKeysIsApplied() {
+		this.context.register(JacksonAutoConfiguration.class);
+		EnvironmentTestUtils.addEnvironment(this.context,
+				"http.mappers.json-sort-keys:true");
+		this.context.refresh();
+		ObjectMapper objectMapper = this.context.getBean(ObjectMapper.class);
+		assertTrue(objectMapper.getSerializationConfig().isEnabled(
+				SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS));
+	}
+
+	@Test
+	public void moduleBeansAndWellKnownModulesAreRegisteredWithTheObjectMapperBuilder() {
+		this.context.register(ModuleConfig.class, JacksonAutoConfiguration.class);
+		this.context.refresh();
+		ObjectMapper objectMapper = this.context.getBean(
+				Jackson2ObjectMapperBuilder.class).build();
+		assertThat(this.context.getBean(CustomModule.class).getOwners(),
+				hasItem((ObjectCodec) objectMapper));
+		assertThat(objectMapper.canSerialize(LocalDateTime.class), is(true));
+	}
+
+	@Configuration
+	protected static class MockObjectMapperConfig {
 
 		@Bean
 		@Primary
@@ -368,6 +420,15 @@ public class JacksonAutoConfigurationTests {
 			return mock(ObjectMapper.class);
 		}
 
+	}
+
+	@Configuration
+	protected static class ModuleConfig {
+
+		@Bean
+		public CustomModule jacksonModule() {
+			return new CustomModule();
+		}
 	}
 
 	@Configuration
@@ -432,5 +493,20 @@ public class JacksonAutoConfigurationTests {
 		public void setPropertyName(String propertyName) {
 			this.propertyName = propertyName;
 		}
+	}
+
+	private static class CustomModule extends SimpleModule {
+
+		private Set<ObjectCodec> owners = new HashSet<ObjectCodec>();
+
+		@Override
+		public void setupModule(SetupContext context) {
+			this.owners.add(context.getOwner());
+		}
+
+		Set<ObjectCodec> getOwners() {
+			return this.owners;
+		}
+
 	}
 }

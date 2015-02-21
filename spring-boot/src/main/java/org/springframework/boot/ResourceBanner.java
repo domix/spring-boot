@@ -88,17 +88,30 @@ public class ResourceBanner implements Banner {
 	}
 
 	private Map<String, Object> getVersionsMap(Class<?> sourceClass) {
-		String applicationVersion = (sourceClass == null ? null : sourceClass
-				.getPackage().getImplementationVersion());
-		String bootVersion = Banner.class.getPackage().getImplementationVersion();
+		String appVersion = getApplicationVersion(sourceClass);
+		String bootVersion = getBootVersion();
 		Map<String, Object> versions = new HashMap<String, Object>();
-		versions.put("application.version", getVersionString(applicationVersion));
-		versions.put("spring-boot.version", getVersionString(bootVersion));
+		versions.put("application.version", getVersionString(appVersion, false));
+		versions.put("spring-boot.version", getVersionString(bootVersion, false));
+		versions.put("application.formatted-version", getVersionString(appVersion, true));
+		versions.put("spring-boot.formatted-version", getVersionString(bootVersion, true));
 		return versions;
 	}
 
-	private String getVersionString(String version) {
-		return (version == null ? "" : " (v" + version + ")");
+	protected String getApplicationVersion(Class<?> sourceClass) {
+		Package sourcePackage = (sourceClass == null ? null : sourceClass.getPackage());
+		return (sourcePackage == null ? null : sourcePackage.getImplementationVersion());
+	}
+
+	protected String getBootVersion() {
+		return Banner.class.getPackage().getImplementationVersion();
+	}
+
+	private String getVersionString(String version, boolean format) {
+		if (version == null) {
+			return "";
+		}
+		return (format ? " (v" + version + ")" : version);
 	}
 
 }

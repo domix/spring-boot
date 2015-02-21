@@ -16,19 +16,20 @@
 
 package org.springframework.boot.autoconfigure.amqp;
 
+import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.springframework.amqp.core.AmqpAdmin;
 import org.springframework.amqp.rabbit.annotation.EnableRabbit;
 import org.springframework.amqp.rabbit.config.RabbitListenerConfigUtils;
-import org.springframework.amqp.rabbit.config.RabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitMessagingTemplate;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.rabbit.listener.RabbitListenerContainerFactory;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.boot.test.EnvironmentTestUtils;
@@ -49,10 +50,17 @@ import static org.mockito.Mockito.verify;
  */
 public class RabbitAutoConfigurationTests {
 
-	private AnnotationConfigApplicationContext context;
-
 	@Rule
 	public ExpectedException thrown = ExpectedException.none();
+
+	private AnnotationConfigApplicationContext context;
+
+	@After
+	public void close() {
+		if (this.context != null) {
+			this.context.close();
+		}
+	}
 
 	@Test
 	public void testDefaultRabbitConfiguration() {

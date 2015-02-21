@@ -70,13 +70,19 @@ import org.springframework.web.util.HtmlUtils;
 // available
 @AutoConfigureBefore(WebMvcAutoConfiguration.class)
 @Configuration
-public class ErrorMvcAutoConfiguration implements EmbeddedServletContainerCustomizer {
+public class ErrorMvcAutoConfiguration implements EmbeddedServletContainerCustomizer,
+		Ordered {
 
 	@Value("${error.path:/error}")
 	private String errorPath = "/error";
 
 	@Autowired
 	private ServerProperties properties;
+
+	@Override
+	public int getOrder() {
+		return 0;
+	}
 
 	@Bean
 	@ConditionalOnMissingBean(value = ErrorAttributes.class, search = SearchStrategy.CURRENT)
@@ -97,7 +103,7 @@ public class ErrorMvcAutoConfiguration implements EmbeddedServletContainerCustom
 	}
 
 	@Configuration
-	@ConditionalOnProperty(prefix = "error.whitelable", name = "enabled", matchIfMissing = true)
+	@ConditionalOnProperty(prefix = "error.whitelabel", name = "enabled", matchIfMissing = true)
 	@Conditional(ErrorTemplateMissingCondition.class)
 	protected static class WhitelabelErrorViewConfiguration {
 
@@ -126,6 +132,9 @@ public class ErrorMvcAutoConfiguration implements EmbeddedServletContainerCustom
 
 	}
 
+	/**
+	 * {@link SpringBootCondition} that matches when no error template view is detected.
+	 */
 	private static class ErrorTemplateMissingCondition extends SpringBootCondition {
 
 		@Override
@@ -145,7 +154,7 @@ public class ErrorMvcAutoConfiguration implements EmbeddedServletContainerCustom
 			}
 
 			return ConditionOutcome.match("No error template view detected");
-		};
+		}
 
 	}
 

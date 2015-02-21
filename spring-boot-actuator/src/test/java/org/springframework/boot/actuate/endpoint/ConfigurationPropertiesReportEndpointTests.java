@@ -31,6 +31,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
 
+/**
+ * Tests for {@link ConfigurationPropertiesReportEndpoint}.
+ *
+ * @author Dave Syer
+ */
 public class ConfigurationPropertiesReportEndpointTests extends
 		AbstractEndpointTests<ConfigurationPropertiesReportEndpoint> {
 
@@ -72,7 +77,7 @@ public class ConfigurationPropertiesReportEndpointTests extends
 	@SuppressWarnings("unchecked")
 	public void testKeySanitization() throws Exception {
 		ConfigurationPropertiesReportEndpoint report = getEndpointBean();
-		report.setKeysToSanitize(new String[] { "property" });
+		report.setKeysToSanitize("property");
 		Map<String, Object> properties = report.invoke();
 		Map<String, Object> nestedProperties = (Map<String, Object>) ((Map<String, Object>) properties
 				.get("testProperties")).get("properties");

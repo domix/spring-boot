@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2014 the original author or authors.
+ * Copyright 2012-2015 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -285,7 +285,6 @@ public class SpringApplication {
 			for (SpringApplicationRunListener runListener : runListeners) {
 				runListener.environmentPrepared(environment);
 			}
-
 			if (this.showBanner) {
 				printBanner(environment);
 			}
@@ -456,12 +455,9 @@ public class SpringApplication {
 	 * @see #configureEnvironment(ConfigurableEnvironment, String[])
 	 */
 	protected void configureProfiles(ConfigurableEnvironment environment, String[] args) {
-		Set<String> profiles = new LinkedHashSet<String>();
 		environment.getActiveProfiles(); // ensure they are initialized
 		// But these ones should go first (last wins in a property key clash)
-		for (String profile : this.profiles) {
-			profiles.add(profile);
-		}
+		Set<String> profiles = new LinkedHashSet<String>(this.profiles);
 		profiles.addAll(Arrays.asList(environment.getActiveProfiles()));
 		environment.setActiveProfiles(profiles.toArray(new String[profiles.size()]));
 	}
@@ -469,8 +465,9 @@ public class SpringApplication {
 	/**
 	 * Print a custom banner message to the console, optionally extracting its location or
 	 * content from the Environment (banner.location and banner.charset). The defaults are
-	 * banner.location=classpath:banner.txt, banner.charest=UTF-8. If the banner file does
+	 * banner.location=classpath:banner.txt, banner.charset=UTF-8. If the banner file does
 	 * not exist or cannot be printed, a simple default is created.
+	 * @param environment the environment
 	 * @see #setShowBanner(boolean)
 	 * @see #printBanner()
 	 */
@@ -745,6 +742,7 @@ public class SpringApplication {
 	 * Sets if the created {@link ApplicationContext} should have a shutdown hook
 	 * registered. Defaults to {@code true} to ensure that JVM shutdowns are handled
 	 * gracefully.
+	 * @param registerShutdownHook if the shutdown hook should be registered
 	 */
 	public void setRegisterShutdownHook(boolean registerShutdownHook) {
 		this.registerShutdownHook = registerShutdownHook;
@@ -970,6 +968,7 @@ public class SpringApplication {
 	 * Most developers will want to define their own main method can call the
 	 * {@link #run(Object, String...) run} method instead.
 	 * @param args command line arguments
+	 * @throws Exception if the application cannot be started
 	 * @see SpringApplication#run(Object[], String[])
 	 * @see SpringApplication#run(Object, String...)
 	 */

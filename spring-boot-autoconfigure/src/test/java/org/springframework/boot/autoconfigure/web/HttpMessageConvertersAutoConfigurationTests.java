@@ -21,9 +21,14 @@ import java.util.List;
 
 import org.junit.After;
 import org.junit.Test;
+import org.springframework.beans.DirectFieldAccessor;
+import org.springframework.boot.autoconfigure.gson.GsonAutoConfiguration;
+import org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration;
+import org.springframework.boot.test.EnvironmentTestUtils;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.http.converter.json.GsonHttpMessageConverter;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
@@ -33,6 +38,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -46,7 +52,7 @@ import static org.junit.Assert.assertTrue;
  */
 public class HttpMessageConvertersAutoConfigurationTests {
 
-	private AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();;
+	private AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
 
 	@After
 	public void close() {
@@ -114,7 +120,7 @@ public class HttpMessageConvertersAutoConfigurationTests {
 
 	@Test
 	public void defaultGsonConverter() throws Exception {
-		this.context.register(GsonConfig.class,
+		this.context.register(GsonAutoConfiguration.class,
 				HttpMessageConvertersAutoConfiguration.class);
 		this.context.refresh();
 		assertConverterBeanExists(GsonHttpMessageConverter.class,
@@ -124,14 +130,86 @@ public class HttpMessageConvertersAutoConfigurationTests {
 	}
 
 	@Test
+	public void jacksonIsPreferredByDefaultWhenBothGsonAndJacksonAreAvailable() {
+		this.context.register(GsonAutoConfiguration.class,
+				JacksonAutoConfiguration.class,
+				HttpMessageConvertersAutoConfiguration.class);
+		this.context.refresh();
+		assertConverterBeanExists(MappingJackson2HttpMessageConverter.class,
+				"mappingJackson2HttpMessageConverter");
+		assertConverterBeanRegisteredWithHttpMessageConverters(MappingJackson2HttpMessageConverter.class);
+		assertEquals(0, this.context.getBeansOfType(GsonHttpMessageConverter.class)
+				.size());
+	}
+
+	@Test
+	public void gsonCanBePreferredWhenBothGsonAndJacksonAreAvailable() {
+		this.context.register(GsonAutoConfiguration.class,
+				JacksonAutoConfiguration.class,
+				HttpMessageConvertersAutoConfiguration.class);
+		EnvironmentTestUtils.addEnvironment(this.context,
+				"spring.http.converters.preferred-json-mapper:gson");
+		this.context.refresh();
+		assertConverterBeanExists(GsonHttpMessageConverter.class,
+				"gsonHttpMessageConverter");
+		assertConverterBeanRegisteredWithHttpMessageConverters(GsonHttpMessageConverter.class);
+		assertEquals(0,
+				this.context.getBeansOfType(MappingJackson2HttpMessageConverter.class)
+						.size());
+	}
+
+	@Test
 	public void customGsonConverter() throws Exception {
-		this.context.register(GsonConfig.class, GsonConverterConfig.class,
+		this.context.register(GsonAutoConfiguration.class, GsonConverterConfig.class,
 				HttpMessageConvertersAutoConfiguration.class);
 		this.context.refresh();
 		assertConverterBeanExists(GsonHttpMessageConverter.class,
 				"customGsonMessageConverter");
 
 		assertConverterBeanRegisteredWithHttpMessageConverters(GsonHttpMessageConverter.class);
+	}
+
+	@Test
+	public void defaultStringConverter() throws Exception {
+		this.context.register(HttpMessageConvertersAutoConfiguration.class);
+		this.context.refresh();
+		assertConverterBeanExists(StringHttpMessageConverter.class,
+				"stringHttpMessageConverter");
+		assertConverterBeanRegisteredWithHttpMessageConverters(StringHttpMessageConverter.class);
+	}
+
+	@Test
+	public void customStringConverter() throws Exception {
+		this.context.register(StringConverterConfig.class,
+				HttpMessageConvertersAutoConfiguration.class);
+		this.context.refresh();
+		assertConverterBeanExists(StringHttpMessageConverter.class,
+				"customStringMessageConverter");
+
+		assertConverterBeanRegisteredWithHttpMessageConverters(StringHttpMessageConverter.class);
+	}
+
+	@Test
+	public void httpMapperPropertiesAreNotAppliedWhenNotConfigured() throws Exception {
+		this.context.register(JacksonObjectMapperConfig.class,
+				HttpMessageConvertersAutoConfiguration.class);
+		this.context.refresh();
+		MappingJackson2HttpMessageConverter converter = this.context
+				.getBean(MappingJackson2HttpMessageConverter.class);
+		assertNull(new DirectFieldAccessor(converter).getPropertyValue("prettyPrint"));
+	}
+
+	@Test
+	public void httpMapperPropertiesAreAppliedWhenConfigured() throws Exception {
+		this.context.register(JacksonObjectMapperConfig.class,
+				HttpMessageConvertersAutoConfiguration.class);
+		EnvironmentTestUtils.addEnvironment(this.context,
+				"http.mappers.jsonPrettyPrint:true");
+		this.context.refresh();
+		MappingJackson2HttpMessageConverter converter = this.context
+				.getBean(MappingJackson2HttpMessageConverter.class);
+		assertTrue((Boolean) new DirectFieldAccessor(converter)
+				.getPropertyValue("prettyPrint"));
 	}
 
 	private void assertConverterBeanExists(Class<?> type, String beanName) {
@@ -141,7 +219,6 @@ public class HttpMessageConvertersAutoConfigurationTests {
 	}
 
 	private void assertConverterBeanRegisteredWithHttpMessageConverters(Class<?> type) {
-
 		Object converter = this.context.getBean(type);
 		HttpMessageConverters converters = this.context
 				.getBean(HttpMessageConverters.class);
@@ -183,15 +260,6 @@ public class HttpMessageConvertersAutoConfigurationTests {
 	}
 
 	@Configuration
-	protected static class GsonConfig {
-
-		@Bean
-		public Gson gson() {
-			return new Gson();
-		}
-	}
-
-	@Configuration
 	protected static class GsonConverterConfig {
 
 		@Bean
@@ -199,6 +267,15 @@ public class HttpMessageConvertersAutoConfigurationTests {
 			GsonHttpMessageConverter converter = new GsonHttpMessageConverter();
 			converter.setGson(gson);
 			return converter;
+		}
+	}
+
+	@Configuration
+	protected static class StringConverterConfig {
+
+		@Bean
+		public StringHttpMessageConverter customStringMessageConverter() {
+			return new StringHttpMessageConverter();
 		}
 	}
 

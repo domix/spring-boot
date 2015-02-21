@@ -20,6 +20,7 @@ import javax.jms.ConnectionFactory;
 
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.pool.PooledConnectionFactory;
+import org.junit.After;
 import org.junit.Test;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
@@ -32,14 +33,17 @@ import org.springframework.jms.annotation.EnableJms;
 import org.springframework.jms.config.DefaultJmsListenerContainerFactory;
 import org.springframework.jms.config.JmsListenerConfigUtils;
 import org.springframework.jms.config.JmsListenerContainerFactory;
+import org.springframework.jms.config.JmsListenerEndpoint;
 import org.springframework.jms.config.SimpleJmsListenerContainerFactory;
 import org.springframework.jms.core.JmsMessagingTemplate;
 import org.springframework.jms.core.JmsTemplate;
+import org.springframework.jms.listener.DefaultMessageListenerContainer;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
 
 /**
  * Tests for {@link JmsAutoConfiguration}.
@@ -53,6 +57,13 @@ public class JmsAutoConfigurationTests {
 	private static final String ACTIVEMQ_NETWORK_URL = "tcp://localhost:61616";
 
 	private AnnotationConfigApplicationContext context;
+
+	@After
+	public void close() {
+		if (this.context != null) {
+			this.context.close();
+		}
+	}
 
 	@Test
 	public void testDefaultJmsConfiguration() {
@@ -138,6 +149,17 @@ public class JmsAutoConfigurationTests {
 		load(TestConfiguration4.class);
 		JmsTemplate jmsTemplate = this.context.getBean(JmsTemplate.class);
 		assertTrue(jmsTemplate.isPubSubDomain());
+	}
+
+	@Test
+	public void testPubSubDomainActive() {
+		load(TestConfiguration.class, "spring.jms.pubSubDomain:true");
+		JmsTemplate jmsTemplate = this.context.getBean(JmsTemplate.class);
+		DefaultMessageListenerContainer defaultMessageListenerContainer = this.context
+				.getBean(DefaultJmsListenerContainerFactory.class)
+				.createListenerContainer(mock(JmsListenerEndpoint.class));
+		assertTrue(jmsTemplate.isPubSubDomain());
+		assertTrue(defaultMessageListenerContainer.isPubSubDomain());
 	}
 
 	@Test

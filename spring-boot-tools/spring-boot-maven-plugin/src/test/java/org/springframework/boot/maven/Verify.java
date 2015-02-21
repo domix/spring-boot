@@ -27,6 +27,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -52,6 +53,10 @@ public class Verify {
 
 	public static void verifyZip(File file) throws Exception {
 		new ZipArchiveVerification(file).verify();
+	}
+
+	public static void verifyModule(File file) throws Exception {
+		new ModuleArchiveVerification(file).verify();
 	}
 
 	public static class ArchiveVerifier {
@@ -87,13 +92,23 @@ public class Verify {
 			}
 		}
 
-		public boolean hasNonUnpackEntry(String entry) {
-			return !hasUnpackEntry(entry);
+		public boolean hasNonUnpackEntry(String entryName) {
+			return !hasUnpackEntry(entryName);
 		}
 
-		public boolean hasUnpackEntry(String entry) {
-			String comment = this.content.get(entry).getComment();
+		public boolean hasUnpackEntry(String entryName) {
+			String comment = getEntryStartingWith(entryName).getComment();
 			return comment != null && comment.startsWith("UNPACK:");
+		}
+
+		private ZipEntry getEntryStartingWith(String entryName) {
+			for (Map.Entry<String, ZipEntry> entry : this.content.entrySet()) {
+				if (entry.getKey().startsWith(entryName)) {
+					return entry.getValue();
+				}
+			}
+			throw new IllegalStateException("Unable to find entry starting with "
+					+ entryName);
 		}
 
 		public boolean hasEntry(String entry) {
@@ -164,7 +179,7 @@ public class Verify {
 			super.verifyZipEntries(verifier);
 			verifier.assertHasEntryNameStartingWith("lib/spring-context");
 			verifier.assertHasEntryNameStartingWith("lib/spring-core");
-			verifier.assertHasEntryNameStartingWith("lib/javax.servlet-api-3.0.1.jar");
+			verifier.assertHasEntryNameStartingWith("lib/javax.servlet-api-3");
 			assertTrue("Unpacked launcher classes", verifier.hasEntry("org/"
 					+ "springframework/boot/loader/JarLauncher.class"));
 			assertTrue("Own classes", verifier.hasEntry("org/"
@@ -191,7 +206,7 @@ public class Verify {
 			super.verifyZipEntries(verifier);
 			verifier.assertHasEntryNameStartingWith("WEB-INF/lib/spring-context");
 			verifier.assertHasEntryNameStartingWith("WEB-INF/lib/spring-core");
-			verifier.assertHasEntryNameStartingWith("WEB-INF/lib-provided/javax.servlet-api-3.0.1.jar");
+			verifier.assertHasEntryNameStartingWith("WEB-INF/lib-provided/javax.servlet-api-3");
 			assertTrue("Unpacked launcher classes", verifier.hasEntry("org/"
 					+ "springframework/boot/loader/JarLauncher.class"));
 			assertTrue("Own classes", verifier.hasEntry("WEB-INF/classes/org/"
@@ -223,6 +238,30 @@ public class Verify {
 					.getValue("Start-Class"));
 			assertEquals("Foo", manifest.getMainAttributes().getValue("Not-Used"));
 		}
+	}
+
+	private static class ModuleArchiveVerification extends AbstractArchiveVerification {
+
+		public ModuleArchiveVerification(File file) {
+			super(file);
+		}
+
+		@Override
+		protected void verifyZipEntries(ArchiveVerifier verifier) throws Exception {
+			super.verifyZipEntries(verifier);
+			verifier.assertHasEntryNameStartingWith("lib/spring-context");
+			verifier.assertHasEntryNameStartingWith("lib/spring-core");
+			verifier.assertHasNoEntryNameStartingWith("lib/javax.servlet-api-3");
+			assertFalse("Unpacked launcher classes", verifier.hasEntry("org/"
+					+ "springframework/boot/loader/JarLauncher.class"));
+			assertTrue("Own classes", verifier.hasEntry("org/"
+					+ "test/SampleModule.class"));
+		}
+
+		@Override
+		protected void verifyManifest(Manifest manifest) throws Exception {
+		}
+
 	}
 
 }

@@ -49,14 +49,14 @@ public interface ConfigurableEmbeddedServletContainer {
 	void setPort(int port);
 
 	/**
-	 * The session timeout in seconds (default 30). If 0 or negative then sessions never
-	 * expire.
+	 * The session timeout in seconds (default 30 minutes). If 0 or negative then sessions
+	 * never expire.
 	 * @param sessionTimeout the session timeout
 	 */
 	void setSessionTimeout(int sessionTimeout);
 
 	/**
-	 * The session timeout in the specified {@link TimeUnit} (default 30 seconds). If 0 or
+	 * The session timeout in the specified {@link TimeUnit} (default 30 minutes). If 0 or
 	 * negative then sessions never expire.
 	 * @param sessionTimeout the session timeout
 	 * @param timeUnit the time unit

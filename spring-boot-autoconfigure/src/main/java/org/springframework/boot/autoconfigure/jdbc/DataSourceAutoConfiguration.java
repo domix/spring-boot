@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2014 the original author or authors.
+ * Copyright 2012-2015 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,14 @@
 
 package org.springframework.boot.autoconfigure.jdbc;
 
+import java.sql.SQLException;
+
 import javax.sql.DataSource;
 import javax.sql.XADataSource;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.tomcat.jdbc.pool.DataSourceProxy;
 import org.springframework.beans.factory.BeanFactoryUtils;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +33,7 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionOutcome;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.SpringBootCondition;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceInitializerPostProcessor.Registrar;
 import org.springframework.boot.autoconfigure.jdbc.metadata.DataSourcePoolMetadataProvidersConfiguration;
@@ -60,9 +66,12 @@ import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 @Import({ Registrar.class, DataSourcePoolMetadataProvidersConfiguration.class })
 public class DataSourceAutoConfiguration {
 
+	private static Log logger = LogFactory.getLog(DataSourceAutoConfiguration.class);
+
 	/**
 	 * Determines if the {@code dataSource} being used by Spring was created from
 	 * {@link EmbeddedDataSourceConfiguration}.
+	 * @param beanFactory the bean factory
 	 * @return true if the data source was auto-configured.
 	 */
 	public static boolean containsAutoConfiguredDataSource(
@@ -133,6 +142,27 @@ public class DataSourceAutoConfiguration {
 		@ConditionalOnMissingBean(NamedParameterJdbcOperations.class)
 		public NamedParameterJdbcTemplate namedParameterJdbcTemplate() {
 			return new NamedParameterJdbcTemplate(this.dataSource);
+		}
+	}
+
+	@Configuration
+	@ConditionalOnProperty(prefix = "spring.datasource", name = "jmx-enabled")
+	@ConditionalOnClass(name = "org.apache.tomcat.jdbc.pool.DataSourceProxy")
+	@Conditional(DataSourceAutoConfiguration.DataSourceAvailableCondition.class)
+	@ConditionalOnMissingBean(name = "dataSourceMBean")
+	protected static class TomcatDataSourceJmxConfiguration {
+
+		@Bean
+		public Object dataSourceMBean(DataSource dataSource) {
+			if (dataSource instanceof DataSourceProxy) {
+				try {
+					return ((DataSourceProxy) dataSource).createPool().getJmxPool();
+				}
+				catch (SQLException ex) {
+					logger.warn("Cannot expose DataSource to JMX (could not connect)");
+				}
+			}
+			return null;
 		}
 
 	}

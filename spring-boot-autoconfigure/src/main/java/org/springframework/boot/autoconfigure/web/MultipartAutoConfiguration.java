@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2013 the original author or authors.
+ * Copyright 2012-2015 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,9 @@ import org.springframework.boot.context.embedded.EmbeddedWebApplicationContext;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.multipart.MultipartResolver;
 import org.springframework.web.multipart.support.StandardServletMultipartResolver;
+import org.springframework.web.servlet.DispatcherServlet;
 
 /**
  * {@link EnableAutoConfiguration Auto-configuration} for multi-part uploads. Adds a
@@ -36,7 +38,7 @@ import org.springframework.web.multipart.support.StandardServletMultipartResolve
  * {@link javax.servlet.MultipartConfigElement multipartConfigElement} if none is
  * otherwise defined. The {@link EmbeddedWebApplicationContext} will associate the
  * {@link MultipartConfigElement} bean to any {@link Servlet} beans.
- * <p/>
+ * <p>
  * The {@link javax.servlet.MultipartConfigElement} is a Servlet API that's used to
  * configure how the container handles file uploads. By default
  *
@@ -54,13 +56,14 @@ public class MultipartAutoConfiguration {
 	private MultipartProperties multipartProperties = new MultipartProperties();
 
 	@Bean
-	@ConditionalOnMissingBean
+	@ConditionalOnMissingBean(value = { MultipartConfigElement.class,
+			MultipartResolver.class })
 	public MultipartConfigElement multipartConfigElement() {
 		return this.multipartProperties.createMultipartConfig();
 	}
 
-	@Bean
-	@ConditionalOnMissingBean
+	@Bean(name = DispatcherServlet.MULTIPART_RESOLVER_BEAN_NAME)
+	@ConditionalOnMissingBean(value = MultipartResolver.class)
 	public StandardServletMultipartResolver multipartResolver() {
 		return new StandardServletMultipartResolver();
 	}

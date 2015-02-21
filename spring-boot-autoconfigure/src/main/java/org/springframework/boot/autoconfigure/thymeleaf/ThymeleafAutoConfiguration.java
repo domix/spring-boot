@@ -29,17 +29,18 @@ import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.boot.autoconfigure.template.TemplateLocation;
 import org.springframework.boot.autoconfigure.web.WebMvcAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
-import org.springframework.core.io.DefaultResourceLoader;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.ResourceLoader;
 import org.springframework.util.Assert;
 import org.thymeleaf.dialect.IDialect;
+import org.thymeleaf.extras.conditionalcomments.dialect.ConditionalCommentsDialect;
 import org.thymeleaf.extras.springsecurity3.dialect.SpringSecurityDialect;
 import org.thymeleaf.spring4.SpringTemplateEngine;
 import org.thymeleaf.spring4.resourceresolver.SpringResourceResourceResolver;
@@ -70,17 +71,18 @@ public class ThymeleafAutoConfiguration {
 		private ThymeleafProperties properties;
 
 		@Autowired
-		private final ResourceLoader resourceLoader = new DefaultResourceLoader();
+		private ApplicationContext applicationContext;
 
 		@PostConstruct
 		public void checkTemplateLocationExists() {
-			Boolean checkTemplateLocation = this.properties.isCheckTemplateLocation();
+			boolean checkTemplateLocation = this.properties.isCheckTemplateLocation();
 			if (checkTemplateLocation) {
-				Resource resource = this.resourceLoader.getResource(this.properties
-						.getPrefix());
-				Assert.state(resource.exists(), "Cannot find template location: "
-						+ resource + " (please add some templates "
-						+ "or check your Thymeleaf configuration)");
+				TemplateLocation location = new TemplateLocation(
+						this.properties.getPrefix());
+				Assert.state(location.exists(this.applicationContext),
+						"Cannot find template location: " + location
+								+ " (please add some templates or check "
+								+ "your Thymeleaf configuration)");
 			}
 		}
 
@@ -163,6 +165,18 @@ public class ThymeleafAutoConfiguration {
 	}
 
 	@Configuration
+	@ConditionalOnClass(ConditionalCommentsDialect.class)
+	protected static class ThymeleafConditionalCommentsDialectConfiguration {
+
+		@Bean
+		@ConditionalOnMissingBean
+		public ConditionalCommentsDialect conditionalCommentsDialect() {
+			return new ConditionalCommentsDialect();
+		}
+
+	}
+
+	@Configuration
 	@ConditionalOnClass({ Servlet.class })
 	@ConditionalOnWebApplication
 	protected static class ThymeleafViewResolverConfiguration {
@@ -175,6 +189,7 @@ public class ThymeleafAutoConfiguration {
 
 		@Bean
 		@ConditionalOnMissingBean(name = "thymeleafViewResolver")
+		@ConditionalOnProperty(name = "spring.thymeleaf.enabled", matchIfMissing = true)
 		public ThymeleafViewResolver thymeleafViewResolver() {
 			ThymeleafViewResolver resolver = new ThymeleafViewResolver();
 			resolver.setTemplateEngine(this.templateEngine);

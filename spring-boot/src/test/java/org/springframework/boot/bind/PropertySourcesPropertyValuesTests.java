@@ -16,10 +16,14 @@
 
 package org.springframework.boot.bind;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.springframework.beans.PropertyValue;
 import org.springframework.core.env.CompositePropertySource;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.MutablePropertySources;
@@ -61,6 +65,26 @@ public class PropertySourcesPropertyValuesTests {
 	}
 
 	@Test
+	public void testOrderPreserved() {
+		LinkedHashMap<String, Object> map = new LinkedHashMap<String, Object>();
+		map.put("one", 1);
+		map.put("two", 2);
+		map.put("three", 3);
+		map.put("four", 4);
+		map.put("five", 5);
+		this.propertySources.addFirst(new MapPropertySource("ordered", map));
+		PropertySourcesPropertyValues propertyValues = new PropertySourcesPropertyValues(
+				this.propertySources);
+		PropertyValue[] values = propertyValues.getPropertyValues();
+		assertEquals(6, values.length);
+		Collection<String> names = new ArrayList<String>();
+		for (PropertyValue value : values) {
+			names.add(value.getName());
+		}
+		assertEquals("[one, two, three, four, five, name]", names.toString());
+	}
+
+	@Test
 	public void testNonEnumeratedValue() {
 		PropertySourcesPropertyValues propertyValues = new PropertySourcesPropertyValues(
 				this.propertySources);
@@ -98,7 +122,8 @@ public class PropertySourcesPropertyValuesTests {
 
 		});
 		PropertySourcesPropertyValues propertyValues = new PropertySourcesPropertyValues(
-				this.propertySources, null, Collections.singleton("baz"));
+				this.propertySources, (Collection<String>) null,
+				Collections.singleton("baz"));
 		assertEquals("bar", propertyValues.getPropertyValue("baz").getValue());
 	}
 
@@ -123,8 +148,8 @@ public class PropertySourcesPropertyValuesTests {
 	public void testPlaceholdersBindingNonEnumerable() {
 		FooBean target = new FooBean();
 		DataBinder binder = new DataBinder(target);
-		binder.bind(new PropertySourcesPropertyValues(this.propertySources, null,
-				Collections.singleton("foo")));
+		binder.bind(new PropertySourcesPropertyValues(this.propertySources,
+				(Collection<String>) null, Collections.singleton("foo")));
 		assertEquals("bar", target.getFoo());
 	}
 
@@ -148,8 +173,8 @@ public class PropertySourcesPropertyValuesTests {
 				return new Object();
 			}
 		});
-		binder.bind(new PropertySourcesPropertyValues(this.propertySources, null,
-				Collections.singleton("name")));
+		binder.bind(new PropertySourcesPropertyValues(this.propertySources,
+				(Collection<String>) null, Collections.singleton("name")));
 		assertEquals(null, target.getName());
 	}
 

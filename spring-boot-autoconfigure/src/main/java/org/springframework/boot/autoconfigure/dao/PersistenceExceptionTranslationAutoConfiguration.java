@@ -19,6 +19,7 @@ package org.springframework.boot.autoconfigure.dao;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.dao.annotation.PersistenceExceptionTranslationPostProcessor;
 
@@ -34,8 +35,11 @@ public class PersistenceExceptionTranslationAutoConfiguration {
 
 	@Bean
 	@ConditionalOnMissingBean(PersistenceExceptionTranslationPostProcessor.class)
-	public PersistenceExceptionTranslationPostProcessor persistenceExceptionTranslationPostProcessor() {
-		return new PersistenceExceptionTranslationPostProcessor();
+	@ConditionalOnProperty(prefix = "spring.dao.exceptiontranslation", name = "enabled", matchIfMissing = true)
+	public static PersistenceExceptionTranslationPostProcessor persistenceExceptionTranslationPostProcessor() {
+		PersistenceExceptionTranslationPostProcessor postProcessor = new PersistenceExceptionTranslationPostProcessor();
+		postProcessor.setProxyTargetClass(true);
+		return postProcessor;
 	}
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2014 the original author or authors.
+ * Copyright 2012-2015 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,14 +25,17 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpServletResponseWrapper;
 
+import org.junit.Rule;
 import org.junit.Test;
 import org.springframework.boot.context.embedded.ErrorPage;
+import org.springframework.boot.test.OutputCapture;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockFilterConfig;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
@@ -40,6 +43,10 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 /**
  * Tests for {@link ErrorPageFilter}.
@@ -57,6 +64,9 @@ public class ErrorPageFilterTests {
 
 	private MockFilterChain chain = new MockFilterChain();
 
+	@Rule
+	public OutputCapture output = new OutputCapture();
+
 	@Test
 	public void notAnError() throws Exception {
 		this.filter.doFilter(this.request, this.response, this.chain);
@@ -65,6 +75,26 @@ public class ErrorPageFilterTests {
 				equalTo((ServletResponse) this.response));
 		assertTrue(this.response.isCommitted());
 		assertThat(this.response.getForwardedUrl(), is(nullValue()));
+	}
+
+	@Test
+	public void notAnErrorButNotOK() throws Exception {
+		this.chain = new MockFilterChain() {
+			@Override
+			public void doFilter(ServletRequest request, ServletResponse response)
+					throws IOException, ServletException {
+				((HttpServletResponse) response).setStatus(201);
+				super.doFilter(request, response);
+				response.flushBuffer();
+			}
+		};
+		this.filter.doFilter(this.request, this.response, this.chain);
+		assertThat(((HttpServletResponse) this.chain.getResponse()).getStatus(),
+				equalTo(201));
+		assertThat(
+				((HttpServletResponse) ((HttpServletResponseWrapper) this.chain.getResponse())
+						.getResponse()).getStatus(), equalTo(201));
+		assertTrue(this.response.isCommitted());
 	}
 
 	@Test
@@ -341,6 +371,52 @@ public class ErrorPageFilterTests {
 		assertThat(((HttpServletResponseWrapper) this.chain.getResponse()).getResponse(),
 				equalTo((ServletResponse) this.response));
 		assertTrue(this.response.isCommitted());
+	}
+
+	@Test
+	public void responseIsNotFlushedIfStatusIsLessThan400AndItHasAlreadyBeenCommitted()
+			throws Exception {
+		HttpServletResponse committedResponse = mock(HttpServletResponse.class);
+		given(committedResponse.isCommitted()).willReturn(true);
+		given(committedResponse.getStatus()).willReturn(200);
+
+		this.filter.doFilter(this.request, committedResponse, this.chain);
+
+		verify(committedResponse, times(0)).flushBuffer();
+	}
+
+	@Test
+	public void errorMessageForRequestWithoutPathInfo() throws IOException,
+			ServletException {
+		this.request.setServletPath("/test");
+		this.filter.addErrorPages(new ErrorPage("/error"));
+		this.chain = new MockFilterChain() {
+			@Override
+			public void doFilter(ServletRequest request, ServletResponse response)
+					throws IOException, ServletException {
+				super.doFilter(request, response);
+				throw new RuntimeException();
+			}
+		};
+		this.filter.doFilter(this.request, this.response, this.chain);
+		assertThat(this.output.toString(), containsString("request [/test]"));
+	}
+
+	@Test
+	public void errorMessageForRequestWithPathInfo() throws IOException, ServletException {
+		this.request.setServletPath("/test");
+		this.request.setPathInfo("/alpha");
+		this.filter.addErrorPages(new ErrorPage("/error"));
+		this.chain = new MockFilterChain() {
+			@Override
+			public void doFilter(ServletRequest request, ServletResponse response)
+					throws IOException, ServletException {
+				super.doFilter(request, response);
+				throw new RuntimeException();
+			}
+		};
+		this.filter.doFilter(this.request, this.response, this.chain);
+		assertThat(this.output.toString(), containsString("request [/test/alpha]"));
 	}
 
 }

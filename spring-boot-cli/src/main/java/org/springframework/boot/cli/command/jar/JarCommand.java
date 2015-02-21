@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2014 the original author or authors.
+ * Copyright 2012-2015 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ import org.codehaus.groovy.ast.ModuleNode;
 import org.codehaus.groovy.ast.expr.ConstantExpression;
 import org.codehaus.groovy.control.SourceUnit;
 import org.codehaus.groovy.transform.ASTTransformation;
+import org.springframework.boot.cli.app.SpringApplicationLauncher;
 import org.springframework.boot.cli.command.Command;
 import org.springframework.boot.cli.command.OptionParsingCommand;
 import org.springframework.boot.cli.command.jar.ResourceMatcher.MatchedResource;
@@ -72,6 +73,8 @@ import org.springframework.util.Assert;
 public class JarCommand extends OptionParsingCommand {
 
 	private static final Layout LAYOUT = new Layouts.Jar();
+
+	private static final byte[] ZIP_FILE_HEADER = new byte[] { 'P', 'K', 3, 4 };
 
 	public JarCommand() {
 		super("jar", "Create a self-contained "
@@ -207,6 +210,7 @@ public class JarCommand extends OptionParsingCommand {
 
 		private void addCliClasses(JarWriter writer) throws IOException {
 			addClass(writer, PackagedSpringApplicationLauncher.class);
+			addClass(writer, SpringApplicationLauncher.class);
 			Resource[] resources = new PathMatchingResourcePatternResolver()
 					.getResources("org/springframework/boot/groovy/**");
 			for (Resource resource : resources) {
@@ -250,10 +254,34 @@ public class JarCommand extends OptionParsingCommand {
 
 		private void addDependency(JarWriter writer, File dependency)
 				throws FileNotFoundException, IOException {
-			if (dependency.isFile()) {
+			if (dependency.isFile() && isZip(dependency)) {
 				writer.writeNestedLibrary("lib/", new Library(dependency,
 						LibraryScope.COMPILE));
 			}
+		}
+
+		private boolean isZip(File file) {
+			try {
+				FileInputStream fileInputStream = new FileInputStream(file);
+				try {
+					return isZip(fileInputStream);
+				}
+				finally {
+					fileInputStream.close();
+				}
+			}
+			catch (IOException ex) {
+				return false;
+			}
+		}
+
+		private boolean isZip(InputStream inputStream) throws IOException {
+			for (int i = 0; i < ZIP_FILE_HEADER.length; i++) {
+				if (inputStream.read() != ZIP_FILE_HEADER[i]) {
+					return false;
+				}
+			}
+			return true;
 		}
 
 	}
@@ -280,18 +308,19 @@ public class JarCommand extends OptionParsingCommand {
 				// We only need to do it at most once
 				break;
 			}
-			// Remove GrabReolvers because all the dependencies are local now
-			removeGrabResolver(module.getClasses());
-			removeGrabResolver(module.getImports());
+			// Disable the addition of a static initializer that calls Grape.addResolver
+			// because all the dependencies are local now
+			disableGrabResolvers(module.getClasses());
+			disableGrabResolvers(module.getImports());
 		}
 
-		private void removeGrabResolver(List<? extends AnnotatedNode> nodes) {
+		private void disableGrabResolvers(List<? extends AnnotatedNode> nodes) {
 			for (AnnotatedNode classNode : nodes) {
 				List<AnnotationNode> annotations = classNode.getAnnotations();
 				for (AnnotationNode node : new ArrayList<AnnotationNode>(annotations)) {
 					if (node.getClassNode().getNameWithoutPackage()
 							.equals("GrabResolver")) {
-						annotations.remove(node);
+						node.setMember("initClass", new ConstantExpression(false));
 					}
 				}
 			}

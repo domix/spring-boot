@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2014 the original author or authors.
+ * Copyright 2012-2015 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,9 +37,6 @@ import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 /**
  * Servlet {@link Filter} that logs all requests to a {@link TraceRepository}.
  *
@@ -51,16 +48,17 @@ public class WebRequestTraceFilter extends OncePerRequestFilter implements Order
 
 	private boolean dumpRequests = false;
 
-	private int order = Integer.MAX_VALUE;
+	// Not LOWEST_PRECEDENCE, but near the end, so it has a good chance of catching all
+	// enriched headers, but users can add stuff after this if they want to
+	private int order = Ordered.LOWEST_PRECEDENCE - 10;
 
 	private final TraceRepository traceRepository;
-
-	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	private ErrorAttributes errorAttributes;
 
 	/**
-	 * @param traceRepository
+	 * Create a new {@link WebRequestTraceFilter} instance.
+	 * @param traceRepository the trace repository
 	 */
 	public WebRequestTraceFilter(TraceRepository traceRepository) {
 		this.traceRepository = traceRepository;
@@ -69,6 +67,7 @@ public class WebRequestTraceFilter extends OncePerRequestFilter implements Order
 	/**
 	 * Debugging feature. If enabled, and trace logging is enabled then web request
 	 * headers will be logged.
+	 * @param dumpRequests if requests should be logged
 	 */
 	public void setDumpRequests(boolean dumpRequests) {
 		this.dumpRequests = dumpRequests;
@@ -93,16 +92,9 @@ public class WebRequestTraceFilter extends OncePerRequestFilter implements Order
 			this.logger.trace("Processing request " + request.getMethod() + " "
 					+ request.getRequestURI());
 			if (this.dumpRequests) {
-				try {
-					@SuppressWarnings("unchecked")
-					Map<String, Object> headers = (Map<String, Object>) trace
-							.get("headers");
-					this.logger.trace("Headers: "
-							+ this.objectMapper.writeValueAsString(headers));
-				}
-				catch (JsonProcessingException ex) {
-					throw new IllegalStateException("Cannot create JSON", ex);
-				}
+				@SuppressWarnings("unchecked")
+				Map<String, Object> headers = (Map<String, Object>) trace.get("headers");
+				this.logger.trace("Headers: " + headers);
 			}
 		}
 

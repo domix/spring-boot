@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2014 the original author or authors.
+ * Copyright 2012-2015 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,22 +17,31 @@
 package org.springframework.boot.logging.log4j2;
 
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Marker;
+import org.apache.logging.log4j.core.Filter;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
-import org.apache.logging.log4j.core.config.Configuration;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import org.apache.logging.log4j.core.config.ConfigurationSource;
+import org.apache.logging.log4j.core.config.LoggerConfig;
+import org.apache.logging.log4j.core.filter.AbstractFilter;
+import org.apache.logging.log4j.message.Message;
+import org.springframework.boot.logging.LogFile;
 import org.springframework.boot.logging.LogLevel;
 import org.springframework.boot.logging.LoggingSystem;
 import org.springframework.boot.logging.Slf4JLoggingSystem;
 import org.springframework.util.Assert;
+import org.springframework.util.ClassUtils;
 import org.springframework.util.ResourceUtils;
-import org.springframework.util.SystemPropertyUtils;
 
 /**
  * {@link LoggingSystem} for <a href="http://logging.apache.org/log4j/2.x/">Log4j 2</a>.
@@ -56,37 +65,118 @@ public class Log4J2LoggingSystem extends Slf4JLoggingSystem {
 		LEVELS = Collections.unmodifiableMap(levels);
 	}
 
+	private static final Filter FILTER = new AbstractFilter() {
+
+		@Override
+		public Result filter(LogEvent event) {
+			return Result.DENY;
+		}
+
+		@Override
+		public Result filter(Logger logger, Level level, Marker marker, Message msg,
+				Throwable t) {
+			return Result.DENY;
+		}
+
+		@Override
+		public Result filter(Logger logger, Level level, Marker marker, Object msg,
+				Throwable t) {
+			return Result.DENY;
+		}
+
+		@Override
+		public Result filter(Logger logger, Level level, Marker marker, String msg,
+				Object... params) {
+			return Result.DENY;
+		}
+
+	};
+
 	public Log4J2LoggingSystem(ClassLoader classLoader) {
-		super(classLoader, "log4j2.json", "log4j2.jsn", "log4j2.xml");
+		super(classLoader);
 	}
 
 	@Override
-	public void initialize(String configLocation) {
-		Assert.notNull(configLocation, "ConfigLocation must not be null");
-		String resolvedLocation = SystemPropertyUtils.resolvePlaceholders(configLocation);
-		try {
-			initializeAndStart(resolvedLocation);
+	protected String[] getStandardConfigLocations() {
+		return getCurrentlySupportedConfigLocations();
+	}
+
+	private String[] getCurrentlySupportedConfigLocations() {
+		List<String> supportedConfigLocations = new ArrayList<String>();
+		if (isClassAvailable("com.fasterxml.jackson.dataformat.yaml.YAMLParser")) {
+			Collections.addAll(supportedConfigLocations, "log4j2.yaml", "log4j2.yml");
 		}
-		catch (Exception ex) {
-			throw new IllegalStateException("Could not initialize logging from "
-					+ configLocation, ex);
+		if (isClassAvailable("com.fasterxml.jackson.databind.ObjectMapper")) {
+			Collections.addAll(supportedConfigLocations, "log4j2.json", "log4j2.jsn");
+		}
+		supportedConfigLocations.add("log4j2.xml");
+		return supportedConfigLocations.toArray(new String[supportedConfigLocations
+				.size()]);
+	}
+
+	protected boolean isClassAvailable(String className) {
+		return ClassUtils.isPresent(className, getClassLoader());
+	}
+
+	@Override
+	public void beforeInitialize() {
+		super.beforeInitialize();
+		getLoggerConfig(null).addFilter(FILTER);
+	}
+
+	@Override
+	public void initialize(String configLocation, LogFile logFile) {
+		getLoggerConfig(null).removeFilter(FILTER);
+		super.initialize(configLocation, logFile);
+	}
+
+	@Override
+	protected void loadDefaults(LogFile logFile) {
+		if (logFile != null) {
+			loadConfiguration(getPackagedConfigFile("log4j2-file.xml"), logFile);
+		}
+		else {
+			loadConfiguration(getPackagedConfigFile("log4j2.xml"), logFile);
 		}
 	}
 
-	private void initializeAndStart(String resolvedLocation) throws Exception {
-		LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
-		URL url = ResourceUtils.getURL(resolvedLocation);
-		ConfigurationSource configSource = new ConfigurationSource(url.openStream(), url);
-		Configuration config = ConfigurationFactory.getInstance().getConfiguration(
-				configSource);
-		ctx.start(config);
+	@Override
+	protected void loadConfiguration(String location, LogFile logFile) {
+		Assert.notNull(location, "Location must not be null");
+		if (logFile != null) {
+			logFile.applyToSystemProperties();
+		}
+		try {
+			LoggerContext ctx = getLoggerContext();
+			URL url = ResourceUtils.getURL(location);
+			ConfigurationSource source = new ConfigurationSource(url.openStream(), url);
+			ctx.start(ConfigurationFactory.getInstance().getConfiguration(source));
+		}
+		catch (Exception ex) {
+			throw new IllegalStateException("Could not initialize Log4J2 logging from "
+					+ location, ex);
+		}
+	}
+
+	@Override
+	protected void reinitialize() {
+		getLoggerContext().reconfigure();
 	}
 
 	@Override
 	public void setLogLevel(String loggerName, LogLevel level) {
-		LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
-		ctx.getConfiguration().getLoggerConfig(loggerName).setLevel(LEVELS.get(level));
-		ctx.updateLoggers();
+		getLoggerConfig(loggerName).setLevel(LEVELS.get(level));
+		getLoggerContext().updateLoggers();
+	}
+
+	private LoggerConfig getLoggerConfig(String loggerName) {
+		LoggerConfig loggerConfig = getLoggerContext().getConfiguration()
+				.getLoggerConfig(loggerName == null ? "" : loggerName);
+		return loggerConfig;
+	}
+
+	private LoggerContext getLoggerContext() {
+		return (LoggerContext) LogManager.getContext(false);
 	}
 
 }

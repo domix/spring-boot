@@ -35,22 +35,51 @@ import com.mongodb.ServerAddress;
  * @author Dave Syer
  * @author Phillip Webb
  * @author Josh Long
+ * @author Andy Wilkinson
  */
 @ConfigurationProperties(prefix = "spring.data.mongodb")
 public class MongoProperties {
 
+	private static final int DEFAULT_PORT = 27017;
+
+	/**
+	 * Mongo server host.
+	 */
 	private String host;
 
-	private int port = 27017;
+	/**
+	 * Mongo server port.
+	 */
+	private Integer port = null;
 
+	/**
+	 * Mmongo database URI. When set, host and port are ignored.
+	 */
 	private String uri = "mongodb://localhost/test";
 
+	/**
+	 * Database name.
+	 */
 	private String database;
 
+	/**
+	 * Authentication database name.
+	 */
+	private String authenticationDatabase;
+
+	/**
+	 * GridFS database name.
+	 */
 	private String gridFsDatabase;
 
+	/**
+	 * Login user of the mongo server.
+	 */
 	private String username;
 
+	/**
+	 * Login password of the mongo server.
+	 */
 	private char[] password;
 
 	public String getHost() {
@@ -67,6 +96,14 @@ public class MongoProperties {
 
 	public void setDatabase(String database) {
 		this.database = database;
+	}
+
+	public String getAuthenticationDatabase() {
+		return this.authenticationDatabase;
+	}
+
+	public void setAuthenticationDatabase(String authenticationDatabase) {
+		this.authenticationDatabase = authenticationDatabase;
 	}
 
 	public String getUsername() {
@@ -102,11 +139,11 @@ public class MongoProperties {
 		this.uri = uri;
 	}
 
-	public int getPort() {
+	public Integer getPort() {
 		return this.port;
 	}
 
-	public void setPort(int port) {
+	public void setPort(Integer port) {
 		this.port = port;
 	}
 
@@ -128,17 +165,19 @@ public class MongoProperties {
 	public MongoClient createMongoClient(MongoClientOptions options)
 			throws UnknownHostException {
 		try {
-			if (this.host != null) {
+			if (hasCustomAddress() || hasCustomCredentials()) {
 				if (options == null) {
 					options = MongoClientOptions.builder().build();
 				}
 				List<MongoCredential> credentials = null;
-				if (this.password != null && this.username != null) {
+				if (hasCustomCredentials()) {
 					credentials = Arrays.asList(MongoCredential.createMongoCRCredential(
 							this.username, getMongoClientDatabase(), this.password));
 				}
-				return new MongoClient(Arrays.asList(new ServerAddress(this.host,
-						this.port)), credentials, options);
+				String host = this.host == null ? "localhost" : this.host;
+				int port = this.port == null ? DEFAULT_PORT : this.port;
+				return new MongoClient(Arrays.asList(new ServerAddress(host, port)),
+						credentials, options);
 			}
 			// The options and credentials are in the URI
 			return new MongoClient(new MongoClientURI(this.uri, builder(options)));
@@ -146,6 +185,14 @@ public class MongoProperties {
 		finally {
 			clearPassword();
 		}
+	}
+
+	private boolean hasCustomAddress() {
+		return this.host != null || this.port != null;
+	}
+
+	private boolean hasCustomCredentials() {
+		return this.username != null && this.password != null;
 	}
 
 	private Builder builder(MongoClientOptions options) {

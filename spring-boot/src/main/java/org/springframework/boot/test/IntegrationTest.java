@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2014 the original author or authors.
+ * Copyright 2012-2015 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,15 +25,21 @@ import java.lang.annotation.Target;
 
 import org.springframework.core.env.Environment;
 import org.springframework.test.context.TestExecutionListeners;
+import org.springframework.test.context.jdbc.SqlScriptsTestExecutionListener;
 import org.springframework.test.context.support.DependencyInjectionTestExecutionListener;
 import org.springframework.test.context.support.DirtiesContextTestExecutionListener;
 import org.springframework.test.context.transaction.TransactionalTestExecutionListener;
 
 /**
- * Test class annotation signifying that the tests are integration tests (and therefore
- * require an application to startup "fully leaded" and listening on its normal ports).
+ * Test class annotation signifying that the tests are "integration tests" and therefore
+ * require full startup in the same way as a production application. Normally used in
+ * conjunction with {@code @SpringApplicationConfiguration}.
+ * <p>
+ * If your test also uses {@code @WebAppConfiguration} consider using the
+ * {@link WebIntegrationTest} instead.
  *
  * @author Dave Syer
+ * @see WebIntegrationTest
  */
 @Documented
 @Inherited
@@ -44,7 +50,7 @@ import org.springframework.test.context.transaction.TransactionalTestExecutionLi
 @TestExecutionListeners(listeners = { IntegrationTestPropertiesListener.class,
 		DependencyInjectionTestExecutionListener.class,
 		DirtiesContextTestExecutionListener.class,
-		TransactionalTestExecutionListener.class })
+		TransactionalTestExecutionListener.class, SqlScriptsTestExecutionListener.class })
 public @interface IntegrationTest {
 
 	/**

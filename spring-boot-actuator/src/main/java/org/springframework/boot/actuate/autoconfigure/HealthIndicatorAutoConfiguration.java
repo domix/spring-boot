@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2014 the original author or authors.
+ * Copyright 2012-2015 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package org.springframework.boot.actuate.autoconfigure;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 
 import javax.sql.DataSource;
@@ -26,7 +25,6 @@ import javax.sql.DataSource;
 import org.apache.solr.client.solrj.SolrServer;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.health.ApplicationHealthIndicator;
 import org.springframework.boot.actuate.health.CompositeHealthIndicator;
 import org.springframework.boot.actuate.health.DataSourceHealthIndicator;
@@ -54,6 +52,7 @@ import org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration;
 import org.springframework.boot.autoconfigure.mongo.MongoDataAutoConfiguration;
 import org.springframework.boot.autoconfigure.redis.RedisAutoConfiguration;
 import org.springframework.boot.autoconfigure.solr.SolrAutoConfiguration;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -72,17 +71,18 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 @AutoConfigureAfter({ DataSourceAutoConfiguration.class, MongoAutoConfiguration.class,
 		MongoDataAutoConfiguration.class, RedisAutoConfiguration.class,
 		RabbitAutoConfiguration.class, SolrAutoConfiguration.class })
+@EnableConfigurationProperties({ HealthIndicatorAutoConfigurationProperties.class })
 public class HealthIndicatorAutoConfiguration {
 
-	@Value("${health.status.order:}")
-	private List<String> statusOrder = null;
+	@Autowired
+	private HealthIndicatorAutoConfigurationProperties configurationProperties = new HealthIndicatorAutoConfigurationProperties();
 
 	@Bean
 	@ConditionalOnMissingBean
 	public HealthAggregator healthAggregator() {
 		OrderedHealthAggregator healthAggregator = new OrderedHealthAggregator();
-		if (this.statusOrder != null) {
-			healthAggregator.setStatusOrder(this.statusOrder);
+		if (this.configurationProperties.getOrder() != null) {
+			healthAggregator.setStatusOrder(this.configurationProperties.getOrder());
 		}
 		return healthAggregator;
 	}
@@ -95,7 +95,7 @@ public class HealthIndicatorAutoConfiguration {
 
 	@Configuration
 	@ConditionalOnBean(DataSource.class)
-	@ConditionalOnProperty(prefix = "health.db", name = "enabled", matchIfMissing = true)
+	@ConditionalOnProperty(prefix = "management.health.db", name = "enabled", matchIfMissing = true)
 	public static class DataSourcesHealthIndicatorConfiguration {
 
 		@Autowired
@@ -142,7 +142,7 @@ public class HealthIndicatorAutoConfiguration {
 
 	@Configuration
 	@ConditionalOnBean(MongoTemplate.class)
-	@ConditionalOnProperty(prefix = "health.mongo", name = "enabled", matchIfMissing = true)
+	@ConditionalOnProperty(prefix = "management.health.mongo", name = "enabled", matchIfMissing = true)
 	public static class MongoHealthIndicatorConfiguration {
 
 		@Autowired
@@ -171,7 +171,7 @@ public class HealthIndicatorAutoConfiguration {
 
 	@Configuration
 	@ConditionalOnBean(RedisConnectionFactory.class)
-	@ConditionalOnProperty(prefix = "health.redis", name = "enabled", matchIfMissing = true)
+	@ConditionalOnProperty(prefix = "management.health.redis", name = "enabled", matchIfMissing = true)
 	public static class RedisHealthIndicatorConfiguration {
 
 		@Autowired
@@ -201,7 +201,7 @@ public class HealthIndicatorAutoConfiguration {
 
 	@Configuration
 	@ConditionalOnBean(RabbitTemplate.class)
-	@ConditionalOnProperty(prefix = "health.rabbit", name = "enabled", matchIfMissing = true)
+	@ConditionalOnProperty(prefix = "management.health.rabbit", name = "enabled", matchIfMissing = true)
 	public static class RabbitHealthIndicatorConfiguration {
 
 		@Autowired
@@ -231,7 +231,7 @@ public class HealthIndicatorAutoConfiguration {
 
 	@Configuration
 	@ConditionalOnBean(SolrServer.class)
-	@ConditionalOnProperty(prefix = "health.solr", name = "enabled", matchIfMissing = true)
+	@ConditionalOnProperty(prefix = "management.health.solr", name = "enabled", matchIfMissing = true)
 	public static class SolrHealthIndicatorConfiguration {
 
 		@Autowired
@@ -242,7 +242,7 @@ public class HealthIndicatorAutoConfiguration {
 
 		@Bean
 		@ConditionalOnMissingBean(name = "solrHealthIndicator")
-		public HealthIndicator rabbitHealthIndicator() {
+		public HealthIndicator solrHealthIndicator() {
 			if (this.solrServers.size() == 1) {
 				return new SolrHealthIndicator(this.solrServers.entrySet().iterator()
 						.next().getValue());
@@ -259,7 +259,7 @@ public class HealthIndicatorAutoConfiguration {
 	}
 
 	@Configuration
-	@ConditionalOnProperty(prefix = "health.diskspace", name = "enabled", matchIfMissing = true)
+	@ConditionalOnProperty(prefix = "management.health.diskspace", name = "enabled", matchIfMissing = true)
 	public static class DiskSpaceHealthIndicatorConfiguration {
 
 		@Bean

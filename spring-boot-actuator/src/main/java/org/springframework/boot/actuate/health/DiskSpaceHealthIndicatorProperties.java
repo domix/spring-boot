@@ -27,15 +27,21 @@ import org.springframework.util.Assert;
  * @author Andy Wilkinson
  * @since 1.2.0
  */
-@ConfigurationProperties("health.diskspace")
+@ConfigurationProperties("management.health.diskspace")
 public class DiskSpaceHealthIndicatorProperties {
 
 	private static final int MEGABYTES = 1024 * 1024;
 
 	private static final int DEFAULT_THRESHOLD = 10 * MEGABYTES;
 
+	/**
+	 * Path used to compute the available disk space.
+	 */
 	private File path = new File(".");
 
+	/**
+	 * Minimum disk space that should be available, in bytes.
+	 */
 	private long threshold = DEFAULT_THRESHOLD;
 
 	public File getPath() {

@@ -57,6 +57,7 @@ public abstract class AbstractEmbeddedServletContainerFactory extends
 	/**
 	 * Returns the absolute document root when it points to a valid folder, logging a
 	 * warning and returning {@code null} otherwise.
+	 * @return the valid document root
 	 */
 	protected final File getValidDocumentRoot() {
 		File file = getDocumentRoot();
@@ -66,7 +67,7 @@ public abstract class AbstractEmbeddedServletContainerFactory extends
 		file = file != null ? file : getExplodedWarFileDocumentRoot();
 		// Or maybe there is a document root in a well-known location
 		file = file != null ? file : getCommonDocumentRoot();
-		if (file == null && this.logger.isWarnEnabled()) {
+		if (file == null && this.logger.isDebugEnabled()) {
 			this.logger.debug("None of the document roots "
 					+ Arrays.asList(COMMON_DOC_ROOTS)
 					+ " point to a directory and will be ignored.");

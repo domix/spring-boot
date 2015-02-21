@@ -19,19 +19,23 @@ package sample.jersey;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 @Path("/hello")
 public class Endpoint {
 
-	@Value("${message:World}")
-	private String msg;
+	private Service service;
+
+	@Autowired
+	public Endpoint(Service service) {
+		this.service = service;
+	}
 
 	@GET
 	public String message() {
-		return "Hello " + this.msg;
+		return "Hello " + this.service.message();
 	}
 
 }

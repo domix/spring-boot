@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2014 the original author or authors.
+ * Copyright 2012-2015 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,16 +27,42 @@ import org.springframework.util.ClassUtils;
  */
 public abstract class Slf4JLoggingSystem extends AbstractLoggingSystem {
 
-	public Slf4JLoggingSystem(ClassLoader classLoader, String... paths) {
-		super(classLoader, paths);
+	private static final String BRIDGE_HANDLER = "org.slf4j.bridge.SLF4JBridgeHandler";
+
+	public Slf4JLoggingSystem(ClassLoader classLoader) {
+		super(classLoader);
 	}
 
 	@Override
 	public void beforeInitialize() {
 		super.beforeInitialize();
+		configureJdkLoggingBridgeHandler();
+	}
+
+	@Override
+	public void cleanUp() {
+		removeJdkLoggingBridgeHandler();
+	}
+
+	private void configureJdkLoggingBridgeHandler() {
 		try {
-			if (ClassUtils.isPresent("org.slf4j.bridge.SLF4JBridgeHandler",
-					getClassLoader())) {
+			if (bridgeHandlerIsAvailable()) {
+				removeJdkLoggingBridgeHandler();
+				SLF4JBridgeHandler.install();
+			}
+		}
+		catch (Throwable ex) {
+			// Ignore. No java.util.logging bridge is installed.
+		}
+	}
+
+	private boolean bridgeHandlerIsAvailable() {
+		return ClassUtils.isPresent(BRIDGE_HANDLER, getClassLoader());
+	}
+
+	private void removeJdkLoggingBridgeHandler() {
+		try {
+			if (bridgeHandlerIsAvailable()) {
 				try {
 					SLF4JBridgeHandler.removeHandlersForRootLogger();
 				}
@@ -44,11 +70,10 @@ public abstract class Slf4JLoggingSystem extends AbstractLoggingSystem {
 					// Method missing in older versions of SLF4J like in JBoss AS 7.1
 					SLF4JBridgeHandler.uninstall();
 				}
-				SLF4JBridgeHandler.install();
 			}
 		}
 		catch (Throwable ex) {
-			// Ignore. No java.util.logging bridge is installed.
+			// Ignore and continue
 		}
 	}
 

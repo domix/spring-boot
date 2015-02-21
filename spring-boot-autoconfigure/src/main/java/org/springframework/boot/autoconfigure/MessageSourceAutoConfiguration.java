@@ -59,10 +59,22 @@ public class MessageSourceAutoConfiguration {
 
 	private static final Resource[] NO_RESOURCES = {};
 
+	/**
+	 * Comma-separated list of basenames, each following the ResourceBundle convention.
+	 * Essentially a fully-qualified classpath location. If it doesn't contain a package
+	 * qualifier (such as "org.mypackage"), it will be resolved from the classpath root.
+	 */
 	private String basename = "messages";
 
+	/**
+	 * Message bundles encoding.
+	 */
 	private String encoding = "utf-8";
 
+	/**
+	 * Loaded resource bundle files cache expiration, in seconds. When set to -1, bundles
+	 * are cached forever.
+	 */
 	private int cacheSeconds = -1;
 
 	@Bean
@@ -137,7 +149,7 @@ public class MessageSourceAutoConfiguration {
 				return new SkipPatternPathMatchingResourcePatternResolver(classLoader)
 						.getResources("classpath*:" + name + "*.properties");
 			}
-			catch (IOException ex) {
+			catch (Exception ex) {
 				return NO_RESOURCES;
 			}
 		}
@@ -153,9 +165,14 @@ public class MessageSourceAutoConfiguration {
 
 		private static final ClassLoader ROOT_CLASSLOADER;
 		static {
-			ClassLoader classLoader = ClassLoader.getSystemClassLoader();
-			while (classLoader.getParent() != null) {
-				classLoader = classLoader.getParent();
+			ClassLoader classLoader = null;
+			try {
+				classLoader = ClassLoader.getSystemClassLoader();
+				while (classLoader.getParent() != null) {
+					classLoader = classLoader.getParent();
+				}
+			}
+			catch (Throwable ex) {
 			}
 			ROOT_CLASSLOADER = classLoader;
 		}
@@ -180,7 +197,7 @@ public class MessageSourceAutoConfiguration {
 			if (classLoader != ROOT_CLASSLOADER) {
 				super.addAllClassLoaderJarRoots(classLoader, result);
 			}
-		};
+		}
 
 		@Override
 		protected Set<Resource> doFindAllClassPathResources(String path)
